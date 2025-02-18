@@ -2,42 +2,59 @@ package db
 
 import (
 	"context"
-	_ "database/sql"
 	"fmt"
-	_ "github.com/go-sql-driver/mysql" // blank import
-	"github.com/jmoiron/sqlx"
 	"log"
+	"os"
+
+	_ "github.com/go-sql-driver/mysql"
+	"github.com/jmoiron/sqlx"
 )
 
+// DB is the global database connection
 var DB *sqlx.DB
 
-func InitDB() {
+// InitDB initializes the database connection
+func InitDB() error {
 	var err error
-	DB, err = sqlx.Open("mysql", "root:qawzsx1@tcp(localhost:3306)/")
-	if err != nil {
-		log.Fatal("Failed to connect to MySQL DB")
+	dbPassword := os.Getenv("DB_PASSWORD")
+
+	if dbPassword == "" {
+		return fmt.Errorf("Error: DB_PASSWORD environment variable is not set")
 	}
-	defer DB.Close()
 
-	log.Println("Connected to MYSQL Database !!")
+	// Define DSN (Data Source Name) without hardcoding the password
+	dsn := fmt.Sprintf("root:%s@tcp(localhost:3306)/", dbPassword)
 
+	// Open the initial database connection
+	DB, err = sqlx.Open("mysql", dsn)
+	if err != nil {
+		return fmt.Errorf("DB should not be initialized %v", err)
+	}
+
+	// Create the database if it doesn't exist
 	_, err = DB.Exec("CREATE DATABASE IF NOT EXISTS bus_db;")
 	if err != nil {
-		log.Fatal("Failed to create database:", err)
+		return fmt.Errorf("failed to create database: %v", err)
 	}
 
-	DB, err = sqlx.Open("mysql", "root:qawzsx1@tcp(localhost:3306)/bus_db")
+	// Update DSN to connect to the newly created `bus_db`
+	dsn = fmt.Sprintf("root:%s@tcp(localhost:3306)/bus_db", dbPassword)
+
+	// Connect to the `bus_db`
+	DB, err = sqlx.Open("mysql", dsn)
 	if err != nil {
-		log.Fatal("Failed to connect to railway_DB:", err)
+		return fmt.Errorf("failed to connect to bus_db: %v", err)
 	}
 
+	// Verify the database connection
 	if err = DB.Ping(); err != nil {
-		log.Fatal("Database is not reachable:", err)
+		return fmt.Errorf("database is not reachable: %v", err)
 	}
 
+	// Call the function to create necessary tables
 	createTables()
 
-	log.Println("Created Bus database and required tables successfully !!")
+	return nil
 }
 
 func BeginTransaction(ctx context.Context) (*sqlx.Tx, error) {
