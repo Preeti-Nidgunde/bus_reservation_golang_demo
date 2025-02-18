@@ -47,10 +47,12 @@ func InitDB() error {
 	}
 
 	// Verify the database connection
+	// Verify the database connection
 	if err = DB.Ping(); err != nil {
 		return fmt.Errorf("database is not reachable: %v", err)
 	}
 
+	// Call the function to create necessary tables
 	// Call the function to create necessary tables
 	createTables()
 
